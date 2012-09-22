@@ -27,26 +27,6 @@
 #include "uartcolors.h"
 
 
-#include "F2806x_Adc.h"                // ADC Registers
-#include "F2806x_BootVars.h"           // Boot ROM Variables
-#include "F2806x_DevEmu.h"             // Device Emulation Registers
-#include "F2806x_Cla.h"                // Control Law Accelerator Registers
-#include "F2806x_Comp.h"               // Comparator Registers
-#include "F2806x_CpuTimers.h"          // 32-bit CPU Timers
-#include "F2806x_ECan.h"               // Enhanced eCAN Registers
-#include "F2806x_ECap.h"               // Enhanced Capture
-#include "F2806x_EPwm.h"               // Enhanced PWM
-#include "F2806x_EQep.h"               // Enhanced QEP
-#include "F2806x_Gpio.h"               // General Purpose I/O Registers
-#include "F2806x_I2c.h"                // I2C Registers
-#include "F2806x_NmiIntrupt.h"         // NMI Interrupt Registers
-#include "F2806x_PieCtrl.h"            // PIE Control Registers
-#include "F2806x_PieVect.h"            // PIE Vector Table
-#include "F2806x_Spi.h"                // SPI Registers
-#include "F2806x_Sci.h"                // SCI Registers
-#include "F2806x_SysCtrl.h"            // System Control/Power Modes
-#include "F2806x_XIntrupt.h"           // External Interrupts
-
 // Prototype statements for functions found within this file.
 __interrupt void cpu_timer0_isr(void);
 __interrupt void cpu_timer1_isr(void);
@@ -88,7 +68,114 @@ void init(void)
 	// Initialize Sci GPIO
 	InitSciaGpio();
 
-	// Clear all interupts and initialize PIE vector table. Disable CPU interrupts
+	// init pwn
+	EALLOW;
+
+	/* Disable internal pull-up for the selected output pins
+	for reduced power consumption */
+	// Pull-ups can be enabled or disabled by the user.
+	// Comment out other unwanted lines.
+
+	GpioCtrlRegs.GPAPUD.bit.GPIO0 = 1;    // Disable pull-up on GPIO0 (EPWM1A)
+	GpioCtrlRegs.GPAPUD.bit.GPIO1 = 1;    // Disable pull-up on GPIO1 (EPWM1B)
+
+	/* Configure EPWM-1 pins using GPIO regs*/
+	// This specifies which of the possible GPIO pins will be EPWM1 functional pins.
+	// Comment out other unwanted lines.
+
+	GpioCtrlRegs.GPAMUX1.bit.GPIO0 = 1;   // Configure GPIO0 as EPWM1A
+	GpioCtrlRegs.GPAMUX1.bit.GPIO1 = 1;   // Configure GPIO1 as EPWM1B
+
+	SysCtrlRegs.PCLKCR0.bit.TBCLKSYNC = 0;    // disable pwm clock
+
+//	EPwm1Regs.TBPRD = 600; // Period = 8000 TBCLK counts = 10kHz
+//	EPwm1Regs.CMPA.half.CMPA = 500; // Compare A = 350 TBCLK counts
+//	EPwm1Regs.CMPB = 300; // Compare B = 0 TBCLK counts
+//	EPwm1Regs.TBPHS.all = 0; // Set Phase register to zero
+//	EPwm1Regs.TBCTR = 0; // clear TB counter
+//	EPwm1Regs.TBCTL.bit.CTRMODE = TB_COUNT_UP;
+//	EPwm1Regs.TBCTL.bit.PHSEN = TB_DISABLE; // Phase loading disabled
+//	EPwm1Regs.TBCTL.bit.PRDLD = TB_SHADOW;
+//	EPwm1Regs.TBCTL.bit.SYNCOSEL = TB_SYNC_DISABLE;
+//	EPwm1Regs.TBCTL.bit.HSPCLKDIV = TB_DIV1; // TBCLK = SYSCLK
+//	EPwm1Regs.TBCTL.bit.CLKDIV = TB_DIV1;
+//	EPwm1Regs.CMPCTL.bit.SHDWAMODE = CC_SHADOW;
+//	EPwm1Regs.CMPCTL.bit.SHDWBMODE = CC_SHADOW;
+//	EPwm1Regs.CMPCTL.bit.LOADAMODE = CC_CTR_ZERO; // load on CTR = Zero
+//	EPwm1Regs.CMPCTL.bit.LOADBMODE = CC_CTR_ZERO; // load on CTR = Zero
+//	EPwm1Regs.AQCTLA.bit.ZRO = AQ_SET;    // when TBCTR = 0, set ePWMxA high
+//	EPwm1Regs.AQCTLA.bit.CAU = AQ_CLEAR;  // when TBCTR = CMPA, clear ePWMxA low
+//	EPwm1Regs.AQCTLB.bit.ZRO = AQ_SET;    // when TBCTR = 0, set ePWMxB high
+//	EPwm1Regs.AQCTLB.bit.CBU = AQ_CLEAR;  // when TBCTR = CMPB, clear ePWMxB low
+
+
+	//=====================================================================
+	// Configuration
+	//=====================================================================
+	// Initialization Time
+	//========================// EPWM Module 1 config
+	EPwm1Regs.TBPRD = 800; // Period = 800 TBCLK counts
+	EPwm1Regs.TBPHS.half.TBPHS = 0; // Set Phase register to zero
+	EPwm1Regs.TBCTL.bit.CTRMODE = TB_COUNT_UPDOWN; // Symmetrical mode
+	EPwm1Regs.TBCTL.bit.PHSEN = TB_DISABLE; // Master module
+	EPwm1Regs.TBCTL.bit.PRDLD = TB_SHADOW;
+	EPwm1Regs.TBCTL.bit.SYNCOSEL = TB_CTR_ZERO; // Sync down-stream module
+	EPwm1Regs.CMPCTL.bit.SHDWAMODE = CC_SHADOW;
+	EPwm1Regs.CMPCTL.bit.SHDWBMODE = CC_SHADOW;
+	EPwm1Regs.CMPCTL.bit.LOADAMODE = CC_CTR_ZERO; // load on CTR=Zero
+	EPwm1Regs.CMPCTL.bit.LOADBMODE = CC_CTR_ZERO; // load on CTR=Zero
+	EPwm1Regs.AQCTLA.bit.CAU = AQ_SET; // set actions for EPWM1A
+	EPwm1Regs.AQCTLA.bit.CAD = AQ_CLEAR;
+	EPwm1Regs.DBCTL.bit.OUT_MODE = DB_FULL_ENABLE; // enable Dead-band module
+	EPwm1Regs.DBCTL.bit.POLSEL = DB_ACTV_HIC; // Active Hi complementary
+	EPwm1Regs.DBFED = 0; // FED = 50 TBCLKs
+	EPwm1Regs.DBRED = 0; // RED = 50 TBCLKs
+	// EPWM Module 2 config
+	EPwm2Regs.TBPRD = 800; // Period = 1600 TBCLK counts
+	EPwm2Regs.TBPHS.half.TBPHS = 0; // Set Phase register to zero
+	EPwm2Regs.TBCTL.bit.CTRMODE = TB_COUNT_UPDOWN; // Symmetrical mode
+	EPwm2Regs.TBCTL.bit.PHSEN = TB_ENABLE; // Slave module
+	EPwm2Regs.TBCTL.bit.PRDLD = TB_SHADOW;
+	EPwm2Regs.TBCTL.bit.SYNCOSEL = TB_SYNC_IN; // sync flow-through
+	EPwm2Regs.CMPCTL.bit.SHDWAMODE = CC_SHADOW;
+	EPwm2Regs.CMPCTL.bit.SHDWBMODE = CC_SHADOW;
+	EPwm2Regs.CMPCTL.bit.LOADAMODE = CC_CTR_ZERO; // load on CTR=Zero
+	EPwm2Regs.CMPCTL.bit.LOADBMODE = CC_CTR_ZERO; // load on CTR=Zero
+	EPwm2Regs.AQCTLA.bit.CAU = AQ_SET; // set actions for EPWM2A
+	EPwm2Regs.AQCTLA.bit.CAD = AQ_CLEAR;
+	EPwm2Regs.DBCTL.bit.OUT_MODE = DB_FULL_ENABLE; // enable Dead-band module
+	EPwm2Regs.DBCTL.bit.POLSEL = DB_ACTV_HIC; // Active Hi complementary
+	EPwm2Regs.DBFED = 50; // FED = 50 TBCLKs
+	EPwm2Regs.DBRED = 50; // RED = 50 TBCLKs
+	// EPWM Module 3 config
+	EPwm3Regs.TBPRD = 800; // Period = 1600 TBCLK counts
+	EPwm3Regs.TBPHS.half.TBPHS = 0; // Set Phase register to zero
+	EPwm3Regs.TBCTL.bit.CTRMODE = TB_COUNT_UPDOWN; // Symmetrical mode
+	EPwm3Regs.TBCTL.bit.PHSEN = TB_ENABLE; // Slave module
+	EPwm3Regs.TBCTL.bit.PRDLD = TB_SHADOW;
+	EPwm3Regs.TBCTL.bit.SYNCOSEL = TB_SYNC_IN; // sync flow-through
+	EPwm3Regs.CMPCTL.bit.SHDWAMODE = CC_SHADOW;
+	EPwm3Regs.CMPCTL.bit.SHDWBMODE = CC_SHADOW;
+	EPwm3Regs.CMPCTL.bit.LOADAMODE = CC_CTR_ZERO; // load on CTR=Zero
+	EPwm3Regs.CMPCTL.bit.LOADBMODE = CC_CTR_ZERO; // load on CTR=Zero
+	EPwm3Regs.AQCTLA.bit.CAU = AQ_SET; // set actions for EPWM3A
+	EPwm3Regs.AQCTLA.bit.CAD = AQ_CLEAR;
+	EPwm3Regs.DBCTL.bit.IN_MODE = DB_FULL_ENABLE; // enable Dead-band module
+	EPwm3Regs.DBCTL.bit.POLSEL = DB_ACTV_HIC; // Active Hi complementary
+	EPwm3Regs.DBFED = 50; // FED = 50 TBCLKs
+	EPwm3Regs.DBRED = 50; // RED = 50 TBCLKs
+	// Run Time (Note: Example execution of one run-time instant)
+	//=========================================================
+	EPwm1Regs.CMPA.half.CMPA = 500; // adjust duty for output EPWM1A
+	EPwm2Regs.CMPA.half.CMPA = 600; // adjust duty for output EPWM2A
+	EPwm3Regs.CMPA.half.CMPA = 700; // adjust duty for output EPWM3A
+
+
+	SysCtrlRegs.PCLKCR0.bit.TBCLKSYNC = 1;
+
+	EDIS;
+
+	// Clear all interrupts and initialize PIE vector table. Disable CPU interrupts
 	DINT;
 
 	// Disable CPU interrupts and clear all CPU interrupt flags:
@@ -151,7 +238,7 @@ void init(void)
 	ERTM;   // Enable Global realtime interrupt DBGM
 
 	// Intialize UART(INT_SCIRXINTA, UARTStdioIntHandler);
-	UARTStdioInitExpClk(0,115200);
+	UARTStdioInitExpClk(0,9600);
 
 	// Enable Sci tx and rx interupts within Sci control register
 	SciaRegs.SCICTL2.bit.TXINTENA = 1;
