@@ -22,9 +22,39 @@
 //#define DEBUG
 
 extern float Freq;   // frequency of timer0 interrupt in Hz
-
-
 void btoa(char *string, unsigned int var);      // convert 16bit variable into a string
+
+int Cmd_SWF_PWM(int argc,char *argv[])
+{
+
+	EPwm1Regs.DBCTL.bit.POLSEL = 0;  // DB_ACTV_HI
+
+	if (strncmp (argv[1],"l",1) == 0)   // force PWM1 outputs low
+	{
+		EPwm1Regs.AQCSFRC.bit.CSFA = 1;
+		EPwm1Regs.AQCSFRC.bit.CSFB = 1;
+		UARTprintf("114 forced low.\r\n");
+	}
+	else if (strncmp (argv[1],"h",1) == 0)  // force PWM1 outputs high
+	{
+		EPwm1Regs.AQCSFRC.bit.CSFA = 2;
+		EPwm1Regs.AQCSFRC.bit.CSFB = 2;
+		UARTprintf("114 forced high.\r\n");
+	}
+	else if (strncmp (argv[1],"d",1) == 0)
+		{
+			EPwm1Regs.AQCSFRC.bit.CSFA = 3;
+			EPwm1Regs.AQCSFRC.bit.CSFB = 3;
+			UARTprintf("Software forcing is disabled and has no effect.\r\n");
+		}
+	else
+	{
+		UARTprintf("invalid option.\r\n");
+	}
+
+	UARTprintf("done.\r\n");
+}
+
 
 int Cmd_Set_PWM_Duty_Cycle(int argc,char *argv[])
 {
@@ -135,7 +165,6 @@ tCmdLineEntry g_sCmdTable[] =
     { "ledf",  Cmd_LED_Freq,   " : Set LED blinking frequency"},
     { "gr",    Cmd_Get_Reg,    " : Get Register"},
     { "sr",    Cmd_Set_Reg,    " : Set Register"},
-    { "gp",    Cmd_Get_PWM_Regs,    " : Print PWM Registers"},
     { "sd",    Cmd_Set_PWM_Duty_Cycle,    " : Set duty cycle of ePWM1B"},
     { 0, 0, 0 }
 };
